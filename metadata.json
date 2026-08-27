@@ -1,0 +1,6 @@
+{
+  "name": "LishNilai",
+  "description": "Aplikasi penilaian siswa digital dengan rekapitulasi semester, impor CSV/Excel, ekspor PDF & Excel, penilaian kelompok, dan filter KKM.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
