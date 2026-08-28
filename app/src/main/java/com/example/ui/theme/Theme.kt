@@ -17,42 +17,45 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val DarkColorScheme = darkColorScheme(
-    primary = TealPrimaryDarkTheme,
-    onPrimary = SurfaceDark,
-    primaryContainer = TealPrimaryDark,
-    onPrimaryContainer = TealPrimaryContainer,
-    secondary = IndigoSecondaryDarkTheme,
-    onSecondary = SurfaceDark,
-    secondaryContainer = IndigoSecondary,
-    onSecondaryContainer = IndigoSecondaryContainer,
-    tertiary = AmberTertiary,
-    background = SurfaceDark,
+    primary = PrimaryDark,
+    onPrimary = Color(0xFF0B1120),
+    primaryContainer = PrimaryContainerDark,
+    onPrimaryContainer = OnPrimaryContainerDark,
+    secondary = SecondaryDark,
+    onSecondary = Color(0xFF0B1120),
+    secondaryContainer = SecondaryContainerDark,
+    onSecondaryContainer = OnSecondaryContainerDark,
+    tertiary = TertiaryDark,
+    onTertiary = Color(0xFF0B1120),
+    tertiaryContainer = TertiaryContainerDark,
+    onTertiaryContainer = OnTertiaryContainerDark,
+    background = SurfaceBackgroundDark,
     surface = SurfaceDark,
     surfaceVariant = SurfaceCardDark,
     onBackground = OnSurfaceDark,
     onSurface = OnSurfaceDark,
     onSurfaceVariant = OnSurfaceVariantDark,
     error = RedError,
-    errorContainer = RedErrorContainer,
-    onError = OnRedError,
-    onErrorContainer = OnRedErrorContainer,
-    outline = OnSurfaceVariantDark
+    errorContainer = Color(0xFF450A0A),
+    onError = Color.White,
+    onErrorContainer = Color(0xFFFECACA),
+    outline = OutlineDark
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = TealPrimary,
-    onPrimary = SurfaceCardLight,
-    primaryContainer = TealPrimaryContainer,
-    onPrimaryContainer = OnTealPrimaryContainer,
-    secondary = IndigoSecondary,
-    onSecondary = SurfaceCardLight,
-    secondaryContainer = IndigoSecondaryContainer,
-    onSecondaryContainer = OnIndigoSecondaryContainer,
-    tertiary = AmberTertiary,
-    onTertiary = SurfaceCardLight,
-    tertiaryContainer = AmberTertiaryContainer,
-    onTertiaryContainer = OnAmberTertiaryContainer,
-    background = SurfaceLight,
+    primary = PrimaryLight,
+    onPrimary = Color.White,
+    primaryContainer = PrimaryContainerLight,
+    onPrimaryContainer = OnPrimaryContainerLight,
+    secondary = SecondaryLight,
+    onSecondary = Color.White,
+    secondaryContainer = SecondaryContainerLight,
+    onSecondaryContainer = OnSecondaryContainerLight,
+    tertiary = TertiaryLight,
+    onTertiary = Color.White,
+    tertiaryContainer = TertiaryContainerLight,
+    onTertiaryContainer = OnTertiaryContainerLight,
+    background = SurfaceBackground,
     surface = SurfaceLight,
     surfaceVariant = SurfaceElevated,
     onBackground = OnSurfaceLight,
@@ -93,7 +96,7 @@ fun MyApplicationTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = Color.White.toArgb()
+            window.statusBarColor = colorScheme.surface.toArgb()
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
         }
     }

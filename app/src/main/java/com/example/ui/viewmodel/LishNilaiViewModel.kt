@@ -28,6 +28,32 @@ class LishNilaiViewModel(application: Application) : AndroidViewModel(applicatio
 
     private val database = AppDatabase.getDatabase(application, viewModelScope)
     private val repository = GradeRepository(database.appDao())
+    private val sharedPrefs = application.getSharedPreferences("lishnilai_prefs", Context.MODE_PRIVATE)
+
+    // Dark Mode: null = follow system, true = dark, false = light
+    private val _isDarkMode = MutableStateFlow<Boolean?>(
+        if (sharedPrefs.contains("is_dark_mode")) sharedPrefs.getBoolean("is_dark_mode", false) else null
+    )
+    val isDarkMode: StateFlow<Boolean?> = _isDarkMode.asStateFlow()
+
+    fun toggleDarkMode(currentSystemDark: Boolean) {
+        val nextMode = when (_isDarkMode.value) {
+            null -> !currentSystemDark
+            true -> false
+            false -> true
+        }
+        _isDarkMode.value = nextMode
+        sharedPrefs.edit().putBoolean("is_dark_mode", nextMode).apply()
+    }
+
+    fun setDarkMode(dark: Boolean?) {
+        _isDarkMode.value = dark
+        if (dark == null) {
+            sharedPrefs.edit().remove("is_dark_mode").apply()
+        } else {
+            sharedPrefs.edit().putBoolean("is_dark_mode", dark).apply()
+        }
+    }
 
     // Authentication State
     private val _isAuthenticated = MutableStateFlow(false)

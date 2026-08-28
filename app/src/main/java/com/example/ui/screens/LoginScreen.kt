@@ -83,7 +83,7 @@ fun LoginScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(SurfaceBackground)
+            .background(MaterialTheme.colorScheme.background)
             .padding(20.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -92,8 +92,8 @@ fun LoginScreen(
                 .fillMaxWidth()
                 .widthIn(max = 420.dp),
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = SurfaceLight),
-            border = androidx.compose.foundation.BorderStroke(1.dp, OutlineLight),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
         ) {
             Column(
@@ -108,8 +108,8 @@ fun LoginScreen(
                     modifier = Modifier
                         .size(80.dp)
                         .clip(CircleShape),
-                    color = SurfaceBackground,
-                    border = androidx.compose.foundation.BorderStroke(1.5.dp, OutlineLight)
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Image(
@@ -120,7 +120,7 @@ fun LoginScreen(
                     }
                 }
 
-                // App Title & Tagline in High Contrast Black
+                // App Title & Tagline
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -129,20 +129,20 @@ fun LoginScreen(
                         text = "LishNilai",
                         fontSize = 26.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = OnSurfaceLight,
+                        color = MaterialTheme.colorScheme.onSurface,
                         letterSpacing = 0.5.sp
                     )
                     Text(
                         text = "Aplikasi Penilaian & Rekap Nilai Siswa",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
-                        color = OnSurfaceVariantLight,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
                     )
                 }
 
                 HorizontalDivider(
-                    color = OutlineLight,
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
                     modifier = Modifier.padding(vertical = 4.dp)
                 )
 
@@ -150,7 +150,7 @@ fun LoginScreen(
                     text = "Masuk Akun Guru",
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
-                    color = OnSurfaceLight
+                    color = MaterialTheme.colorScheme.onSurface
                 )
 
                 // Password Input Field
@@ -160,17 +160,17 @@ fun LoginScreen(
                         passwordInput = it
                         if (errorMessage != null) errorMessage = null
                     },
-                    label = { Text("Kata Sandi", color = OnSurfaceVariantLight) },
-                    placeholder = { Text("Masukkan kata sandi...", color = TextMuted) },
+                    label = { Text("Kata Sandi", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    placeholder = { Text("Masukkan kata sandi...", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
                     leadingIcon = {
-                        Icon(Icons.Default.Lock, contentDescription = "Password", tint = TealPrimary)
+                        Icon(Icons.Default.Lock, contentDescription = "Password", tint = MaterialTheme.colorScheme.primary)
                     },
                     trailingIcon = {
                         IconButton(onClick = { passwordVisible = !passwordVisible }) {
                             Icon(
                                 imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                                 contentDescription = if (passwordVisible) "Sembunyikan sandi" else "Tampilkan sandi",
-                                tint = OnSurfaceVariantLight
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     },
@@ -185,12 +185,12 @@ fun LoginScreen(
                         onDone = { verifyPassword() }
                     ),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = OnSurfaceLight,
-                        unfocusedTextColor = OnSurfaceLight,
-                        focusedBorderColor = TealPrimary,
-                        unfocusedBorderColor = OutlineLight,
-                        focusedLabelColor = TealPrimary,
-                        unfocusedLabelColor = OnSurfaceVariantLight
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                        focusedLabelColor = MaterialTheme.colorScheme.primary,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
                     ),
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier
@@ -202,14 +202,14 @@ fun LoginScreen(
                 AnimatedVisibility(visible = errorMessage != null) {
                     errorMessage?.let { msg ->
                         Surface(
-                            color = RedErrorContainer,
+                            color = MaterialTheme.colorScheme.errorContainer,
                             shape = RoundedCornerShape(8.dp),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, RedErrorBorder),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f)),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
                                 text = msg,
-                                color = OnRedErrorContainer,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
@@ -227,8 +227,8 @@ fun LoginScreen(
                         .testTag("password_login_button"),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = TealPrimary,
-                        contentColor = Color.White
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
                     )
                 ) {
                     Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -244,14 +244,14 @@ fun LoginScreen(
                         .height(46.dp)
                         .testTag("fingerprint_login_button"),
                     shape = RoundedCornerShape(14.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, OutlineLight),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
                     colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = OnSurfaceLight
+                        contentColor = MaterialTheme.colorScheme.onSurface
                     )
                 ) {
-                    Icon(Icons.Default.Fingerprint, contentDescription = null, tint = TealPrimary, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.Fingerprint, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Masuk dengan Sidik Jari", fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = OnSurfaceLight)
+                    Text("Masuk dengan Sidik Jari", fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
                 }
 
                 Spacer(modifier = Modifier.height(4.dp))
@@ -259,7 +259,7 @@ fun LoginScreen(
                 Text(
                     text = "Kurikulum Merdeka & Standar Penilaian SMK",
                     fontSize = 11.sp,
-                    color = TextMuted,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
                 )
             }

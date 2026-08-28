@@ -146,16 +146,19 @@ fun RemedialScreen(
                                 viewModel.shareRemedialWhatsApp(context, cls, currentAssessmentTitle)
                             }
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)), // WhatsApp Green
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.secondary,
+                            contentColor = MaterialTheme.colorScheme.onSecondary
+                        ),
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier
                             .weight(1f)
                             .testTag("share_whatsapp_button"),
                         contentPadding = PaddingValues(vertical = 10.dp)
                     ) {
-                        Icon(Icons.Default.Send, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Buka WhatsApp", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("Buka WhatsApp", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }

@@ -21,6 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.*
@@ -29,6 +30,13 @@ import com.example.ui.components.QuickScoreRangeDialog
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.LishNilaiViewModel
 import kotlinx.coroutines.launch
+
+enum class GradingFilter(val label: String) {
+    ALL("Semua"),
+    UNGRADED("Belum Dinilai"),
+    PASSED("Tuntas KKM"),
+    REMEDIAL("Di Bawah KKM")
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,13 +56,14 @@ fun GradingScreen(
     var showScoreRangeDialog by remember { mutableStateOf(false) }
 
     // State for Individual Grading Modal Sheet
-    var gradingStudent by remember { mutableStateOf<Student?>(null) }
+    var gradingStudentIndex by remember { mutableStateOf<Int?>(null) }
 
     // State for Group Grading Modal Sheet
     var gradingGroup by remember { mutableStateOf<StudentGroup?>(null) }
     var groupMembersMap by remember { mutableStateOf<Map<Long, List<Student>>>(emptyMap()) }
 
     var searchQuery by remember { mutableStateOf("") }
+    var selectedFilter by remember { mutableStateOf(GradingFilter.ALL) }
 
     // Map scores by studentId
     val scoresByStudent = remember(currentScores) {
@@ -267,7 +276,7 @@ fun GradingScreen(
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    placeholder = { Text("Cari nama siswa...") },
+                    placeholder = { Text("Cari nama siswa atau NIS...") },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                     trailingIcon = if (searchQuery.isNotEmpty()) {
                         { IconButton(onClick = { searchQuery = "" }) { Icon(Icons.Default.Clear, contentDescription = null) } }
@@ -328,26 +337,132 @@ fun GradingScreen(
                     }
                 } else {
                     // === INDIVIDUAL SCORING VIEW ===
-                    val filteredStudents = remember(students, searchQuery) {
-                        if (searchQuery.isBlank()) students
-                        else students.filter { it.name.contains(searchQuery, ignoreCase = true) || it.nis.contains(searchQuery) }
+                    val totalCount = students.size
+                    val gradedCount = students.count { scoresByStudent.containsKey(it.id) }
+                    val passedCount = students.count { (scoresByStudent[it.id]?.finalScore ?: 0.0) >= activeAssessment.kkm }
+                    val remedialCount = students.count { scoresByStudent.containsKey(it.id) && (scoresByStudent[it.id]?.finalScore ?: 0.0) < activeAssessment.kkm }
+                    val ungradedCount = (totalCount - gradedCount).coerceAtLeast(0)
+
+                    // Grading Progress Bar
+                    val progressRatio = if (totalCount > 0) gradedCount.toFloat() / totalCount.toFloat() else 0f
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Progres: $gradedCount/$totalCount Siswa Dinilai (${(progressRatio * 100).toInt()}%)",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TealPrimary
+                            )
+                            if (ungradedCount > 0) {
+                                Text(
+                                    text = "$ungradedCount Belum Dinilai",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = RedError
+                                )
+                            } else {
+                                Text(
+                                    text = "Semua Selesai ✓",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = GreenSuccess
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        LinearProgressIndicator(
+                            progress = { progressRatio },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(3.dp)),
+                            color = if (progressRatio >= 1.0f) GreenSuccess else TealPrimary,
+                            trackColor = OutlineLight
+                        )
                     }
 
-                    LazyColumn(
+                    // Quick Filter Chips Row
+                    Row(
                         modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(top = 8.dp, bottom = 88.dp)
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        items(filteredStudents) { student ->
-                            val score = scoresByStudent[student.id]
-                            StudentScoringCard(
-                                student = student,
-                                assessment = activeAssessment,
-                                score = score,
-                                onClick = { gradingStudent = student }
+                        FilterChip(
+                            selected = selectedFilter == GradingFilter.ALL,
+                            onClick = { selectedFilter = GradingFilter.ALL },
+                            label = { Text("Semua ($totalCount)", fontSize = 11.sp) }
+                        )
+                        FilterChip(
+                            selected = selectedFilter == GradingFilter.UNGRADED,
+                            onClick = { selectedFilter = GradingFilter.UNGRADED },
+                            label = { Text("Belum ($ungradedCount)", fontSize = 11.sp, fontWeight = if (ungradedCount > 0) FontWeight.Bold else FontWeight.Normal) }
+                        )
+                        FilterChip(
+                            selected = selectedFilter == GradingFilter.PASSED,
+                            onClick = { selectedFilter = GradingFilter.PASSED },
+                            label = { Text("Tuntas ($passedCount)", fontSize = 11.sp) }
+                        )
+                        FilterChip(
+                            selected = selectedFilter == GradingFilter.REMEDIAL,
+                            onClick = { selectedFilter = GradingFilter.REMEDIAL },
+                            label = { Text("Remedial ($remedialCount)", fontSize = 11.sp, color = if (remedialCount > 0) RedError else Color.Unspecified) }
+                        )
+                    }
+
+                    val filteredStudents = remember(students, searchQuery, selectedFilter, scoresByStudent, activeAssessment) {
+                        students.filter { student ->
+                            val matchesSearch = if (searchQuery.isBlank()) true
+                            else student.name.contains(searchQuery, ignoreCase = true) || student.nis.contains(searchQuery)
+
+                            val hasScore = scoresByStudent.containsKey(student.id)
+                            val scoreVal = scoresByStudent[student.id]?.finalScore ?: 0.0
+
+                            val matchesFilter = when (selectedFilter) {
+                                GradingFilter.ALL -> true
+                                GradingFilter.UNGRADED -> !hasScore
+                                GradingFilter.PASSED -> hasScore && scoreVal >= activeAssessment.kkm
+                                GradingFilter.REMEDIAL -> hasScore && scoreVal < activeAssessment.kkm
+                            }
+                            matchesSearch && matchesFilter
+                        }
+                    }
+
+                    if (filteredStudents.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(24.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "Tidak ada siswa yang cocok dengan filter saat ini.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
                             )
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(top = 8.dp, bottom = 88.dp)
+                        ) {
+                            items(filteredStudents.size) { index ->
+                                val student = filteredStudents[index]
+                                val score = scoresByStudent[student.id]
+                                StudentScoringCard(
+                                    student = student,
+                                    assessment = activeAssessment,
+                                    score = score,
+                                    onClick = { gradingStudentIndex = index }
+                                )
+                            }
                         }
                     }
                 }
@@ -380,33 +495,82 @@ fun GradingScreen(
         }
     }
 
-    // === MODAL DIALOG: INDIVIDUAL FAST CHIPS SCORING ===
-    if (gradingStudent != null && activeAssessment != null) {
-        val student = gradingStudent!!
-        val existingScore = scoresByStudent[student.id]
+    // === MODAL DIALOG: INDIVIDUAL FAST CHIPS SCORING WITH NEXT/PREV & QUICK PRESETS ===
+    if (gradingStudentIndex != null && activeAssessment != null) {
+        val filteredList = remember(students, searchQuery, selectedFilter, scoresByStudent, activeAssessment) {
+            students.filter { student ->
+                val matchesSearch = if (searchQuery.isBlank()) true
+                else student.name.contains(searchQuery, ignoreCase = true) || student.nis.contains(searchQuery)
 
-        IndividualScoreDialog(
-            student = student,
-            assessment = activeAssessment,
-            initialScore = existingScore,
-            onDismiss = { gradingStudent = null },
-            onSave = { a1, a2, a3, a4, a5, a6, a7, bonus, notes ->
-                viewModel.saveStudentScore(
-                    assessment = activeAssessment,
-                    studentId = student.id,
-                    aspect1 = a1,
-                    aspect2 = a2,
-                    aspect3 = a3,
-                    aspect4 = a4,
-                    aspect5 = a5,
-                    aspect6 = a6,
-                    aspect7 = a7,
-                    bonusScore = bonus,
-                    notes = notes
-                )
-                gradingStudent = null
+                val hasScore = scoresByStudent.containsKey(student.id)
+                val scoreVal = scoresByStudent[student.id]?.finalScore ?: 0.0
+
+                val matchesFilter = when (selectedFilter) {
+                    GradingFilter.ALL -> true
+                    GradingFilter.UNGRADED -> !hasScore
+                    GradingFilter.PASSED -> hasScore && scoreVal >= activeAssessment.kkm
+                    GradingFilter.REMEDIAL -> hasScore && scoreVal < activeAssessment.kkm
+                }
+                matchesSearch && matchesFilter
             }
-        )
+        }
+
+        val currentIndex = gradingStudentIndex!!.coerceIn(0, (filteredList.size - 1).coerceAtLeast(0))
+        if (currentIndex in filteredList.indices) {
+            val student = filteredList[currentIndex]
+            val existingScore = scoresByStudent[student.id]
+
+            IndividualScoreDialog(
+                student = student,
+                assessment = activeAssessment,
+                initialScore = existingScore,
+                studentIndex = currentIndex,
+                totalStudents = filteredList.size,
+                onPrevStudent = if (currentIndex > 0) {
+                    { gradingStudentIndex = currentIndex - 1 }
+                } else null,
+                onNextStudent = if (currentIndex < filteredList.size - 1) {
+                    { gradingStudentIndex = currentIndex + 1 }
+                } else null,
+                onDismiss = { gradingStudentIndex = null },
+                onSave = { a1, a2, a3, a4, a5, a6, a7, bonus, notes ->
+                    viewModel.saveStudentScore(
+                        assessment = activeAssessment,
+                        studentId = student.id,
+                        aspect1 = a1,
+                        aspect2 = a2,
+                        aspect3 = a3,
+                        aspect4 = a4,
+                        aspect5 = a5,
+                        aspect6 = a6,
+                        aspect7 = a7,
+                        bonusScore = bonus,
+                        notes = notes
+                    )
+                    gradingStudentIndex = null
+                },
+                onSaveAndNext = if (currentIndex < filteredList.size - 1) {
+                    { a1, a2, a3, a4, a5, a6, a7, bonus, notes ->
+                        viewModel.saveStudentScore(
+                            assessment = activeAssessment,
+                            studentId = student.id,
+                            aspect1 = a1,
+                            aspect2 = a2,
+                            aspect3 = a3,
+                            aspect4 = a4,
+                            aspect5 = a5,
+                            aspect6 = a6,
+                            aspect7 = a7,
+                            bonusScore = bonus,
+                            notes = notes
+                        )
+                        gradingStudentIndex = currentIndex + 1
+                    }
+                } else null
+            )
+        } else {
+            gradingStudentIndex = null
+        }
     }
 
     // === MODAL DIALOG: GROUP UNIFIED SCORING ===
@@ -735,19 +899,24 @@ private fun IndividualScoreDialog(
     student: Student,
     assessment: Assessment,
     initialScore: StudentScore?,
+    studentIndex: Int = 0,
+    totalStudents: Int = 1,
+    onPrevStudent: (() -> Unit)? = null,
+    onNextStudent: (() -> Unit)? = null,
     onDismiss: () -> Unit,
-    onSave: (a1: Int, a2: Int, a3: Int, a4: Int, a5: Int, a6: Int, a7: Int, bonus: Int, notes: String) -> Unit
+    onSave: (a1: Int, a2: Int, a3: Int, a4: Int, a5: Int, a6: Int, a7: Int, bonus: Int, notes: String) -> Unit,
+    onSaveAndNext: ((a1: Int, a2: Int, a3: Int, a4: Int, a5: Int, a6: Int, a7: Int, bonus: Int, notes: String) -> Unit)? = null
 ) {
     val defaultVal = assessment.minScore
-    var a1 by remember { mutableStateOf(initialScore?.aspect1Score?.takeIf { it > 0 } ?: defaultVal) }
-    var a2 by remember { mutableStateOf(initialScore?.aspect2Score?.takeIf { it > 0 } ?: defaultVal) }
-    var a3 by remember { mutableStateOf(initialScore?.aspect3Score?.takeIf { it > 0 } ?: defaultVal) }
-    var a4 by remember { mutableStateOf(initialScore?.aspect4Score?.takeIf { it > 0 } ?: defaultVal) }
-    var a5 by remember { mutableStateOf(initialScore?.aspect5Score?.takeIf { it > 0 } ?: defaultVal) }
-    var a6 by remember { mutableStateOf(initialScore?.aspect6Score?.takeIf { it > 0 } ?: defaultVal) }
-    var a7 by remember { mutableStateOf(initialScore?.aspect7Score?.takeIf { it > 0 } ?: defaultVal) }
-    var bonus by remember { mutableStateOf(initialScore?.bonusScore ?: 0) }
-    var notes by remember { mutableStateOf(initialScore?.notes ?: "") }
+    var a1 by remember(student.id) { mutableStateOf(initialScore?.aspect1Score?.takeIf { it > 0 } ?: defaultVal) }
+    var a2 by remember(student.id) { mutableStateOf(initialScore?.aspect2Score?.takeIf { it > 0 } ?: defaultVal) }
+    var a3 by remember(student.id) { mutableStateOf(initialScore?.aspect3Score?.takeIf { it > 0 } ?: defaultVal) }
+    var a4 by remember(student.id) { mutableStateOf(initialScore?.aspect4Score?.takeIf { it > 0 } ?: defaultVal) }
+    var a5 by remember(student.id) { mutableStateOf(initialScore?.aspect5Score?.takeIf { it > 0 } ?: defaultVal) }
+    var a6 by remember(student.id) { mutableStateOf(initialScore?.aspect6Score?.takeIf { it > 0 } ?: defaultVal) }
+    var a7 by remember(student.id) { mutableStateOf(initialScore?.aspect7Score?.takeIf { it > 0 } ?: defaultVal) }
+    var bonus by remember(student.id) { mutableStateOf(initialScore?.bonusScore ?: 0) }
+    var notes by remember(student.id) { mutableStateOf(initialScore?.notes ?: "") }
 
     val aspectNames = listOf(
         assessment.aspect1Name,
@@ -777,12 +946,56 @@ private fun IndividualScoreDialog(
         onDismissRequest = onDismiss,
         title = {
             Column {
-                Text("Beri Nilai Siswa", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                Text(
-                    text = "${student.name} • ${assessment.title}",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Beri Nilai Siswa", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                        Text(
+                            text = "${student.name} • NIS: ${student.nis.ifBlank { "-" }}",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TealPrimary
+                        )
+                    }
+
+                    // Student Index Navigation
+                    if (totalStudents > 1) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = SurfaceElevated,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, OutlineLight)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                            ) {
+                                IconButton(
+                                    onClick = { onPrevStudent?.invoke() },
+                                    enabled = onPrevStudent != null,
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(Icons.Default.ChevronLeft, contentDescription = "Sebelumnya", modifier = Modifier.size(18.dp))
+                                }
+                                Text(
+                                    text = "${studentIndex + 1}/$totalStudents",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = OnSurfaceLight
+                                )
+                                IconButton(
+                                    onClick = { onNextStudent?.invoke() },
+                                    enabled = onNextStudent != null,
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(Icons.Default.ChevronRight, contentDescription = "Selanjutnya", modifier = Modifier.size(18.dp))
+                                }
+                            }
+                        }
+                    }
+                }
             }
         },
         text = {
@@ -790,7 +1003,7 @@ private fun IndividualScoreDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // Real-Time Score Gauge Card
                 Card(
@@ -802,7 +1015,7 @@ private fun IndividualScoreDialog(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(14.dp),
+                            .padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
@@ -815,7 +1028,7 @@ private fun IndividualScoreDialog(
                             )
                             Text(
                                 text = "${"%.1f".format(previewScore)}",
-                                fontSize = 28.sp,
+                                fontSize = 26.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = if (isUnderKkm) RedError else GreenSuccess
                             )
@@ -830,16 +1043,95 @@ private fun IndividualScoreDialog(
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 11.sp,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Quick Preset Row
+                Column {
+                    Text(
+                        "Setel Nilai Cepat (Preset Semua Aspek):",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        val maxV = assessment.maxScore
+                        val midV = (assessment.minScore + assessment.maxScore) / 2
+                        val minV = assessment.minScore
+
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)),
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable {
+                                    a1 = maxV; a2 = maxV; a3 = maxV; a4 = maxV; a5 = maxV; a6 = maxV; a7 = maxV
+                                }
+                        ) {
+                            Text(
+                                text = "⭐ Maks ($maxV)",
+                                color = MaterialTheme.colorScheme.primary,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(vertical = 6.dp)
+                            )
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)),
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable {
+                                    a1 = midV; a2 = midV; a3 = midV; a4 = midV; a5 = midV; a6 = midV; a7 = midV
+                                }
+                        ) {
+                            Text(
+                                text = "👍 Sedang ($midV)",
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(vertical = 6.dp)
+                            )
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)),
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable {
+                                    a1 = minV; a2 = minV; a3 = minV; a4 = minV; a5 = minV; a6 = minV; a7 = minV
+                                }
+                        ) {
+                            Text(
+                                text = "⚠️ Min ($minV)",
+                                color = MaterialTheme.colorScheme.secondary,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(vertical = 6.dp)
                             )
                         }
                     }
                 }
 
                 Text(
-                    "Pilih Bobot Tiap Aspek (${assessment.minScore} - ${assessment.maxScore}) • Rentang Nilai: ${assessment.targetMinScore.toInt()} - ${assessment.targetMaxScore.toInt()}:",
+                    "Pilih Bobot Tiap Aspek (${assessment.minScore} - ${assessment.maxScore}) • Rentang: ${assessment.targetMinScore.toInt()} - ${assessment.targetMaxScore.toInt()}:",
                     fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp
+                    fontSize = 12.sp
                 )
 
                 // Aspect 1
@@ -954,17 +1246,39 @@ private fun IndividualScoreDialog(
             }
         },
         confirmButton = {
-            Button(
-                onClick = { onSave(a1, a2, a3, a4, a5, a6, a7, bonus, notes) },
-                colors = ButtonDefaults.buttonColors(containerColor = TealPrimary),
-                modifier = Modifier.testTag("confirm_individual_score_button")
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Simpan Nilai")
+                if (onSaveAndNext != null) {
+                    Button(
+                        onClick = { onSaveAndNext(a1, a2, a3, a4, a5, a6, a7, bonus, notes) },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.secondary,
+                            contentColor = MaterialTheme.colorScheme.onSecondary
+                        ),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("Simpan & Lanjut ➡", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                }
+
+                Button(
+                    onClick = { onSave(a1, a2, a3, a4, a5, a6, a7, bonus, notes) },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.testTag("confirm_individual_score_button")
+                ) {
+                    Text("Simpan", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Batal")
+                Text("Tutup")
             }
         }
     )
@@ -1052,6 +1366,76 @@ private fun GroupScoreDialog(
                             fontWeight = FontWeight.ExtraBold,
                             fontSize = 16.sp,
                             color = IndigoSecondary
+                        )
+                    }
+                }
+
+                // Quick Preset Row for Group
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    val maxV = assessment.maxScore
+                    val midV = (assessment.minScore + assessment.maxScore) / 2
+                    val minV = assessment.minScore
+
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)),
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable {
+                                a1 = maxV; a2 = maxV; a3 = maxV; a4 = maxV; a5 = maxV; a6 = maxV; a7 = maxV
+                            }
+                    ) {
+                        Text(
+                            text = "⭐ Maks ($maxV)",
+                            color = MaterialTheme.colorScheme.primary,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(vertical = 6.dp)
+                        )
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)),
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable {
+                                a1 = midV; a2 = midV; a3 = midV; a4 = midV; a5 = midV; a6 = midV; a7 = midV
+                            }
+                    ) {
+                        Text(
+                            text = "👍 Sedang ($midV)",
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(vertical = 6.dp)
+                        )
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)),
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable {
+                                a1 = minV; a2 = minV; a3 = minV; a4 = minV; a5 = minV; a6 = minV; a7 = minV
+                            }
+                    ) {
+                        Text(
+                            text = "⚠️ Min ($minV)",
+                            color = MaterialTheme.colorScheme.secondary,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(vertical = 6.dp)
                         )
                     }
                 }
@@ -1152,10 +1536,14 @@ private fun GroupScoreDialog(
         confirmButton = {
             Button(
                 onClick = { onSaveGroup(a1, a2, a3, a4, a5, a6, a7, notes) },
-                colors = ButtonDefaults.buttonColors(containerColor = IndigoSecondary),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ),
+                shape = RoundedCornerShape(10.dp),
                 modifier = Modifier.testTag("confirm_group_score_button")
             ) {
-                Text("Terapkan ke Semua Anggota")
+                Text("Terapkan ke Semua Anggota", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
